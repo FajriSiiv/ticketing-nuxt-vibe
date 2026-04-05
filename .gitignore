@@ -22,3 +22,14 @@ logs
 .env
 .env.*
 !.env.example
+
+/app/generated/prisma
+
+.claudeignore
+.claude
+readme-ideas-features.md
+recap-project.md
+test_prisma.ts
+clear_db.ts
+tsconfig.tsbuildinfo 
+*.tsbuildinfo   

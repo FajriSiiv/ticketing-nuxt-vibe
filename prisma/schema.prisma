@@ -1,0 +1,67 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+model User {
+  id    String @id @default(cuid())
+  name  String  @unique
+  email String? @unique
+  password String
+  role  Role   @default(USER) // Default semua orang adalah USER
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  transactions Transaction[] // User punya banyak riwayat transaksi
+}
+
+model Event {
+  id              String        @id @default(uuid())
+  title           String
+  description     String?
+  price           Int
+  total_slots     Int
+  remaining_slots Int
+  eventDate       DateTime?
+  createdAt       DateTime      @default(now())
+  // Relasi: Satu event bisa punya banyak transaksi
+  transactions    Transaction[]
+}
+
+model Transaction {
+  id          String   @id @default(uuid())
+  eventId     String
+  userId      String   // ID dari Supabase Auth
+  amount      Int
+  status      String   @default("PENDING") // PENDING, SETTLEMENT, EXPIRE
+  snapToken   String?  // Token dari Midtrans nanti
+  orderId     String   @unique // ID unik yang dikirim ke Midtrans (bisa pakai ID transaksi)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade) //relasi balik ke event
+  @@index([userId]) // Optimalisasi pencarian transaksi berdasarkan user
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade) // Relasi ke User
+  notes     String?  @db.Text
+  qrCode    String?  @db.Text
+  tickets   Ticket[]
+}
+
+model Ticket {
+  id            String      @id @default(uuid())
+  transactionId String
+  ticketCode    String      @unique
+  qrCode        String?     @db.Text
+  isUsed        Boolean     @default(false)
+  scannedAt     DateTime?
+  createdAt     DateTime    @default(now())
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+}
