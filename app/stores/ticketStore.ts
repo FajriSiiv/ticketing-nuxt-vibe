@@ -28,9 +28,20 @@ export const useTicketStore = defineStore("ticket", {
             if ((window as any).snap) {
               (window as any).snap.pay(response.transaction.snapToken, {
                 onSuccess: async (result: any) => {
-                  alert("Pembayaran Berhasil! Terima kasih.");
                   console.log(result);
 
+                  // Trigger verify dulu agar stock berkurang
+                  try {
+                    await $fetch('/api/transactions/verify', {
+                      method: 'POST',
+                      body: { orderId: result.order_id }
+                    });
+                  } catch (e) {}
+
+                  // Tunggu sebentar webhook Midtrans selesai proses
+                  await new Promise(r => setTimeout(r, 2000));
+
+                  // Force refetch
                   await this.fetchEvents();
                   await navigateTo("/", { replace: true });
                 },

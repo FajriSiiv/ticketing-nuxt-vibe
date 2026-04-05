@@ -10,9 +10,16 @@ const registerSchema = z.object({
   email: z.string().email("Format email tidak valid").optional().or(z.literal("")),
 });
 
+const MAX_USERS = 3;
+
 export default defineEventHandler(async (event) => {
   rateLimit(event, "register");
   const body = await validateBody(event, registerSchema);
+
+  const userCount = await prisma.user.count();
+  if (userCount >= MAX_USERS) {
+    throw createError({ statusCode: 403, statusMessage: "Registrasi sudah ditutup" });
+  }
 
   const existing = await prisma.user.findUnique({ where: { name: body.name } });
   if (existing) {
