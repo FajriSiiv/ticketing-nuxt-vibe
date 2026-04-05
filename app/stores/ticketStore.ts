@@ -30,20 +30,29 @@ export const useTicketStore = defineStore("ticket", {
                 onSuccess: async (result: any) => {
                   console.log(result);
 
-                  // Trigger verify dulu agar stock berkurang
-                  try {
-                    await $fetch('/api/transactions/verify', {
-                      method: 'POST',
-                      body: { orderId: result.order_id }
-                    });
-                  } catch (e) {}
+                  // Retry verify berkali-kali sampai Midtrans update status
+                  let verified = false;
+                  for (let i = 0; i < 10; i++) {
+                    try {
+                      const res = await $fetch('/api/transactions/verify', {
+                        method: 'POST',
+                        body: { orderId: result.order_id }
+                      });
+                      if (res.status === 'SUCCESS' || res.status === 'SETTLEMENT') {
+                        verified = true;
+                        break;
+                      }
+                    } catch (e) {}
+                    await new Promise(r => setTimeout(r, 2000));
+                  }
 
-                  // Tunggu sebentar webhook Midtrans selesai proses
-                  await new Promise(r => setTimeout(r, 2000));
+                  if (!verified) {
+                    alert('Pembayaran berhasil tapi verifikasi tertunda. Cek riwayat transaksi.');
+                  }
 
                   // Force refetch
                   await this.fetchEvents();
-                  await navigateTo("/", { replace: true });
+                  await navigateTo("/transactions", { replace: true });
                 },
                 onPending: function (result: any) {
                   alert("Menunggu pembayaran Anda!");

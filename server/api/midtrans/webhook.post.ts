@@ -21,35 +21,37 @@ export default defineEventHandler(async (event) => {
 
     if (status === "settlement" || status === "capture") {
       const transaction = await prisma.transaction.findUnique({
-        where: { orderId: orderId },
+        where: { orderId },
         include: { event: true, tickets: true },
       });
 
-      // Pastikan transaksi ada dan belum diproses sebelumnya (Idempotency)
       if (transaction && transaction.status !== "SUCCESS") {
         try {
-          // Generate QR codes for each ticket with unique ticketCode
-          const qrUpdates = transaction.tickets.map(async (ticket) => {
-            const qrCodeDataUrl = await QRCode.toDataURL(ticket.ticketCode);
-            return prisma.ticket.update({
-              where: { id: ticket.id },
-              data: { qrCode: qrCodeDataUrl },
-            });
-          });
-
           const qty = transaction.tickets.length || 1;
 
-          // Build prisma update operations array
+          // Generate QR codes dulu sebelum transaction (async, butuh waktu)
+          const qrDataList = await Promise.all(
+            transaction.tickets.map(async (ticket) => ({
+              id: ticket.id,
+              qrCode: await QRCode.toDataURL(ticket.ticketCode),
+            })),
+          );
+
+          // Build operations: semua elemen HARUS pure Prisma Client promises
           const operations: any[] = [
-            // Update transaction status
             prisma.transaction.update({
               where: { orderId: orderId },
               data: { status: "SUCCESS" },
             }),
-            ...qrUpdates,
+            ...qrDataList.map((item) =>
+              prisma.ticket.update({
+                where: { id: item.id },
+                data: { qrCode: item.qrCode },
+              }),
+            ),
           ];
 
-          // Add stock decrement for each ticket
+          // Stock decrement
           for (let i = 0; i < qty; i++) {
             operations.push(
               prisma.event.update({
@@ -71,7 +73,6 @@ export default defineEventHandler(async (event) => {
             `✅ ${qty} tiket + stok berhasil diperbarui untuk Order ID: ${orderId}`,
           );
         } catch (error: any) {
-          // Jika kode P2025, berarti stok sudah 0 (Prisma error karena where tidak terpenuhi)
           if (error.code === "P2025") {
             console.error(
               `❌ GAGAL: Stok habis untuk Order ID: ${orderId}. Transaksi dibatalkan.`,

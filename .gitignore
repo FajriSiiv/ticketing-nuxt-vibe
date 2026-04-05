@@ -33,3 +33,5 @@ test_prisma.ts
 clear_db.ts
 tsconfig.tsbuildinfo 
 *.tsbuildinfo   
+.github/workflows
+.github/
