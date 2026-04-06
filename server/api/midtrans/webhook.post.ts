@@ -25,7 +25,7 @@ export default defineEventHandler(async (event) => {
         include: { event: true, tickets: true },
       });
 
-      if (transaction && transaction.status !== "SUCCESS") {
+      if (transaction && transaction.status !== "SUCCESS" && transaction.status !== "SETTLEMENT") {
         try {
           const qty = transaction.tickets.length || 1;
 

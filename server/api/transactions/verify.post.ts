@@ -78,6 +78,14 @@ export default defineEventHandler(async (event) => {
     // Update database
     if (finalStatus === "SUCCESS" || finalStatus === "SETTLEMENT") {
       try {
+        // Double-check: jika sudah SUCCESS di DB, skip (bisa jadi sudah diproses webhook)
+        const fresh = await prisma.transaction.findUnique({
+          where: { orderId },
+        });
+        if (fresh?.status === "SUCCESS") {
+          return { success: true, status: "SUCCESS", noChange: true, transaction: fresh };
+        }
+
         const qty = existing.tickets.length || 1;
 
         const operations: any[] = [
